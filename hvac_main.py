@@ -19,7 +19,7 @@ import re
 import hashlib
 import uuid
 from contextlib import asynccontextmanager
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass, field, asdict
 from enum import Enum
@@ -37,6 +37,12 @@ try:
     HAS_PG = True
 except ImportError:
     HAS_PG = False
+
+try:
+    import redis.asyncio as aioredis
+    HAS_REDIS = True
+except ImportError:
+    HAS_REDIS = False
 
 try:
     from prometheus_client import Counter as PCounter, Histogram as PHist, generate_latest, CONTENT_TYPE_LATEST
@@ -68,6 +74,7 @@ ASSEMBLYAI_LLM_MODEL = "claude-haiku-4-5-20251001"
 TELNYX_API_KEY = os.getenv("TELNYX_API_KEY", "")
 TELNYX_PHONE = os.getenv("TELNYX_PHONE", "")
 HUMAN_FALLBACK_NUMBER = os.getenv("HUMAN_FALLBACK_NUMBER", "")
+REDIS_URL = os.getenv("REDIS_URL", "")
 
 # Logging
 os.makedirs(LOG_DIR, exist_ok=True)
@@ -270,6 +277,7 @@ def validate_response(response: str) -> Tuple[bool, str]:
     dangerous_patterns = [
         (r"\b(?:i|my) (?:can |will )?diagnos", "I can't diagnose issues remotely. Let me schedule a technician to inspect your system."),
         (r"\byour (?:diagnosis|problem is)", "I can't diagnose issues remotely. Let me schedule a technician to inspect your system."),
+        (r"\bthe diagnosis (?:shows?|indicates?|is\b)", "I can't diagnose issues remotely. Let me schedule a technician to inspect your system."),
     ]
     for keyword, safe_response in dangerous_keywords:
         if keyword in rl:
@@ -441,7 +449,7 @@ class TelnyxService:
     async def send_sms(self, to: str, body: str) -> Dict:
         if self.mock:
             msg = {"id": f"mock_sms_{uuid.uuid4().hex[:8]}", "to": to, "body": body,
-                   "status": "sent", "mock": True, "ts": datetime.utcnow().isoformat()}
+                   "status": "sent", "mock": True, "ts": datetime.now(timezone.utc).isoformat()}
             self.sent_messages.append(msg)
             logger.info(f"[MOCK SMS] To: {to} | Body: {body[:50]}...")
             return msg
@@ -584,6 +592,7 @@ YOUR RESPONSE (2-3 sentences max):"""
 # ============================================================================
 
 db_pool = None
+redis_client = None
 rag_service = None
 llm_service = None
 telnyx_service = None
@@ -591,8 +600,8 @@ conversation_engine = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global db_pool, rag_service, llm_service, telnyx_service, conversation_engine
-    logger.info("Starting HVAC AI Receptionist v5.0...")
+    global db_pool, redis_client, rag_service, llm_service, telnyx_service, conversation_engine
+    logger.info("Starting HVAC AI Receptionist v6.0...")
 
     # Database (optional)
     if HAS_PG and not MOCK_MODE:
@@ -609,23 +618,35 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             logger.warning(f"DB unavailable (running without): {e}")
 
+    # Redis (optional — for session sharing and pub-sub)
+    if HAS_REDIS and REDIS_URL:
+        try:
+            redis_client = aioredis.from_url(REDIS_URL, decode_responses=True)
+            await redis_client.ping()
+            logger.info("Redis connected")
+        except Exception as e:
+            logger.warning(f"Redis unavailable (running without): {e}")
+            redis_client = None
+
     # Services
     rag_service = RAGService(db_pool)
     llm_service = LLMService(ASSEMBLYAI_API_KEY, mock=MOCK_MODE)
     telnyx_service = TelnyxService(TELNYX_API_KEY, TELNYX_PHONE, mock=MOCK_MODE)
     conversation_engine = ConversationEngine(llm_service, rag_service, telnyx_service)
 
-    logger.info(f"Services ready | Mock={MOCK_MODE} | LLM={'mock' if llm_service.mock else 'assembly_llm'}")
+    logger.info(f"Services ready | Mock={MOCK_MODE} | LLM={'mock' if llm_service.mock else 'assembly_llm'} | Redis={'yes' if redis_client else 'no'}")
     yield
 
+    if redis_client:
+        await redis_client.close()
     if db_pool:
         await db_pool.close()
     logger.info("Shutdown complete")
 
 app = FastAPI(
-    title="HVAC AI Receptionist v5.0",
-    description="AI Receptionist + Smart Dispatch + Inventory + Emergency Triage + EPA Compliance",
-    version="5.0.0",
+    title="HVAC AI Receptionist v6.0",
+    description="AI Receptionist + Smart Dispatch + Route Optimization + Emergency Triage + Voice Pipeline",
+    version="6.0.0",
     lifespan=lifespan,
 )
 
@@ -671,6 +692,14 @@ try:
 except ImportError:
     logger.warning("hvac_telnyx module not found — telephony unavailable")
 
+# CRM integration (optional — graceful if not available)
+try:
+    from hvac_crm import register_crm_endpoints
+    register_crm_endpoints(app)
+    logger.info("CRM endpoints registered")
+except ImportError:
+    logger.warning("hvac_crm module not found — CRM integration unavailable")
+
 # Mount static files for web demo (MUST be after route registration)
 static_dir = Path(__file__).parent / "static"
 if static_dir.exists():
@@ -684,7 +713,7 @@ if static_dir.exists():
 async def health():
     return {
         "status": "healthy",
-        "version": "5.0.0",
+        "version": "6.0.0",
         "mock_mode": MOCK_MODE,
         "toggles": {"pgvector": USE_PGVECTOR, "self_consistency": USE_SELF_CONS,
                      "graphhopper": bool(GRAPH_KEY), "epa": USE_EPA},
@@ -693,6 +722,7 @@ async def health():
             "telephony": "mock" if (telnyx_service and telnyx_service.mock) else "telnyx",
             "rag": "pgvector" if USE_PGVECTOR else "keyword",
             "db": "connected" if db_pool else "unavailable",
+            "redis": "connected" if redis_client else "unavailable",
         },
     }
 
@@ -735,7 +765,7 @@ async def signup(request: Request):
         "company_id": company_id,
         "company_name": company_name,
         "role": "owner",
-        "created_at": datetime.utcnow().isoformat(),
+        "created_at": datetime.now(timezone.utc).isoformat(),
     }
     token = create_token(company_id, "owner", email)
     audit_log.log(company_id, email, "SIGNUP", company_name)
@@ -1080,4 +1110,5 @@ catch(x){document.getElementById('et').textContent=x.message;document.getElement
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    port = int(os.getenv("PORT", "8000"))
+    uvicorn.run(app, host="0.0.0.0", port=port)

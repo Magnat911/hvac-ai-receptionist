@@ -168,7 +168,7 @@ class PaymentService:
             inv = Invoice(
                 id=invoice_id, company_id=company_id, subscription_id="",
                 amount_cents=amount_cents, currency="USD", status="paid",
-                paid_at=datetime.utcnow().isoformat(), created_at=datetime.utcnow().isoformat(),
+                paid_at=datetime.now(timezone.utc).isoformat(), created_at=datetime.now(timezone.utc).isoformat(),
             )
             self.invoices[invoice_id] = inv
             return {"status": "paid", "invoice_id": invoice_id, "mock": True}
@@ -194,8 +194,8 @@ class PaymentService:
                 inv = Invoice(
                     id=invoice_id, company_id=company_id, subscription_id="",
                     amount_cents=amount_cents, currency="USD", status=status,
-                    paid_at=datetime.utcnow().isoformat() if status == "paid" else None,
-                    created_at=datetime.utcnow().isoformat(),
+                    paid_at=datetime.now(timezone.utc).isoformat() if status == "paid" else None,
+                    created_at=datetime.now(timezone.utc).isoformat(),
                 )
                 self.invoices[invoice_id] = inv
                 return {"status": status, "invoice_id": invoice_id, "transaction": tx.get("uid")}
@@ -205,7 +205,7 @@ class PaymentService:
 
     def create_subscription(self, company_id: str, plan: str, card_token: str = "") -> Subscription:
         """Create a subscription record."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         sub = Subscription(
             id=f"sub_{uuid.uuid4().hex[:8]}",
             company_id=company_id,

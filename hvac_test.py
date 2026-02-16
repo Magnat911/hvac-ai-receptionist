@@ -24,7 +24,7 @@ from hvac_main import (
     EmergencyAnalysis,
 )
 from hvac_routing import (
-    haversine, estimate_travel_seconds, euclidean_matrix,
+    haversine, estimate_travel_seconds, build_distance_matrix, build_duration_matrix,
     HybridRouter, Technician, Job, RouteStop,
 )
 from hvac_inventory import InventoryManager, Part
@@ -339,12 +339,14 @@ class TestRouting:
         t = estimate_travel_seconds(30.0, "urban")  # 30km at 30km/h = 3600s
         assert t == 3600
 
-    def test_euclidean_matrix(self):
+    def test_distance_matrix(self):
         points = [(40.7, -74.0), (40.8, -73.9), (40.75, -74.1)]
-        dists, times = euclidean_matrix(points)
+        dists = build_distance_matrix(points)
+        times = build_duration_matrix(points)
         assert len(dists) == 3
         assert dists[0][0] == 0
         assert dists[0][1] > 0
+        assert len(times) == 3
 
     @pytest.mark.asyncio
     async def test_router_empty(self):
@@ -478,15 +480,22 @@ class TestAPI:
     @pytest.fixture
     def client(self):
         from fastapi.testclient import TestClient
-        from hvac_main import app
-        return TestClient(app)
+        import hvac_main
+        # Initialize services that lifespan normally sets up
+        hvac_main.rag_service = RAGService()
+        hvac_main.llm_service = LLMService("", mock=True)
+        hvac_main.telnyx_service = TelnyxService("", "", mock=True)
+        hvac_main.conversation_engine = ConversationEngine(
+            hvac_main.llm_service, hvac_main.rag_service, hvac_main.telnyx_service
+        )
+        return TestClient(hvac_main.app)
 
     def test_health(self, client):
         resp = client.get("/health")
         assert resp.status_code == 200
         data = resp.json()
         assert data["status"] == "healthy"
-        assert data["version"] == "5.0.0"
+        assert data["version"] == "6.0.0"
         assert data["mock_mode"]
 
     def test_chat(self, client):

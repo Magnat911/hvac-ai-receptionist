@@ -6,7 +6,7 @@ Human-confirmed part usage + automatic reorder alerts + EPA tracking (optional)
 
 import logging
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, field, asdict
 
@@ -97,7 +97,7 @@ class InventoryManager:
         usage = PartUsage(
             id=f"use_{uuid.uuid4().hex[:8]}", part_id=part_id, job_id=job_id,
             technician_id=tech_id, quantity_used=quantity, recorded_by=recorded_by,
-            recorded_at=datetime.utcnow().isoformat(), notes=notes,
+            recorded_at=datetime.now(timezone.utc).isoformat(), notes=notes,
         )
         self.usage_log.append(usage)
         logger.info(f"Part used: {part.name} x{quantity} for job {job_id}")
