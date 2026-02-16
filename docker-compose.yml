@@ -1,0 +1,89 @@
+# HVAC AI Receptionist v5.0 - Docker Compose
+# Usage:
+#   Mock mode (testing):  docker compose up -d
+#   Production:           MOCK_MODE=0 docker compose --profile production up -d
+
+services:
+  hvac-api:
+    build: .
+    container_name: hvac-api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - MOCK_MODE=${MOCK_MODE:-1}
+      - TELNYX_API_KEY=${TELNYX_API_KEY:-}
+      - TELNYX_PHONE_NUMBER=${TELNYX_PHONE_NUMBER:-}
+      - TELNYX_PUBLIC_API_KEY=${TELNYX_PUBLIC_API_KEY:-}
+      - USE_PGVECTOR=${USE_PGVECTOR:-0}
+      - USE_SELF_CONS=${USE_SELF_CONS:-0}
+      - USE_EPA=${USE_EPA:-0}
+      - GRAPH_KEY=${GRAPH_KEY:-}
+      # Voice pipeline (AssemblyAI STT + LLM Gateway)
+      - ASSEMBLYAI_API_KEY=${ASSEMBLYAI_API_KEY:-}
+      # Voice pipeline (Inworld TTS)
+      - INWORLD_API_KEY=${INWORLD_API_KEY:-}
+      - JWT_SECRET=${JWT_SECRET:-}
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=hvac
+      - DB_PASSWORD=${DB_PASSWORD:-hvac_pass}
+      - DB_NAME=hvac_ai
+      - LOG_DIR=/app/logs
+    volumes:
+      - ./logs:/app/logs
+      - ./static:/app/static
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: hvac-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=hvac_ai
+      - POSTGRES_USER=hvac
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-hvac_pass}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./hvac_schema.sql:/docker-entrypoint-initdb.d/01_schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hvac -d hvac_ai"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Production-only services
+  prometheus:
+    image: prom/prometheus:v2.48.0
+    container_name: hvac-prometheus
+    restart: unless-stopped
+    profiles: ["production"]
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+
+  grafana:
+    image: grafana/grafana:10.2.3
+    container_name: hvac-grafana
+    restart: unless-stopped
+    profiles: ["production"]
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+
+volumes:
+  postgres_data:
+  prometheus_data:

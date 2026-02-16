@@ -1,0 +1,26 @@
+# HVAC AI Receptionist v5.0 - Dependencies
+# Core (always required)
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+httpx==0.28.1
+pydantic==2.10.4
+python-dotenv==1.0.1
+
+# Database (optional, for production)
+asyncpg==0.30.0
+
+# Monitoring (optional)
+prometheus-client==0.21.1
+
+# Routing (install separately if needed - large package)
+# ortools==9.11.4210
+
+# Testing
+pytest==8.3.4
+pytest-asyncio==0.25.0
+
+# Voice pipeline
+requests==2.32.3
+
+# WebSocket support (included in uvicorn[standard])
+websockets==14.1
