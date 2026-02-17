@@ -1,3 +1,10 @@
+
+.env
+.env.local
+.env.*
+*.env
+.factory/
+.opencode/
 logs/
 *.pyc
 __pycache__/
