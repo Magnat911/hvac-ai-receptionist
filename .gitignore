@@ -31,3 +31,4 @@ test_logs/
 .p10k.zsh
 .shell.pre-oh-my-zsh
 .zcompdump*
+.opencode/
