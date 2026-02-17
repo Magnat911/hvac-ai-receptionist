@@ -700,6 +700,14 @@ try:
 except ImportError:
     logger.warning("hvac_crm module not found — CRM integration unavailable")
 
+# LiveKit voice pipeline integration (optional — graceful if not available)
+try:
+    from hvac_livekit import register_livekit_endpoints
+    register_livekit_endpoints(app)
+    logger.info("LiveKit voice pipeline endpoints registered")
+except ImportError:
+    logger.warning("hvac_livekit module not found — LiveKit voice pipeline unavailable")
+
 # Mount static files for web demo (MUST be after route registration)
 static_dir = Path(__file__).parent / "static"
 if static_dir.exists():

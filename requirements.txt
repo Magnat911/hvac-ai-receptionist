@@ -20,6 +20,12 @@ vroom==1.0.2
 requests==2.32.3
 websockets==14.1
 
+# LiveKit Agents (optional - for production voice)
+livekit-agents>=0.9.0
+livekit-plugins-assemblyai>=0.6.0
+livekit-plugins-openai>=0.6.0
+livekit-plugins-elevenlabs>=0.6.0
+
 # Testing (dev only)
 pytest==8.3.4
 pytest-asyncio==0.25.0

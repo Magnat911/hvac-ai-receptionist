@@ -13,7 +13,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Application code — copy ALL Python modules
 COPY hvac_main.py hvac_impl.py hvac_routing.py hvac_inventory.py hvac_auth.py ./
-COPY hvac_voice.py hvac_telnyx.py hvac_payment.py hvac_crm.py ./
+COPY hvac_voice.py hvac_telnyx.py hvac_payment.py hvac_crm.py hvac_livekit.py ./
 COPY hvac_schema.sql ./
 COPY static/ ./static/
 COPY landing.html web_demo.html ./
