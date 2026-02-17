@@ -603,25 +603,38 @@ async def lifespan(app: FastAPI):
     global db_pool, redis_client, rag_service, llm_service, telnyx_service, conversation_engine
     logger.info("Starting HVAC AI Receptionist v6.0...")
 
-    # Database (optional)
+    # Database (optional) - use DATABASE_URL from Railway or individual vars
+    database_url = os.getenv("DATABASE_URL", "")
     if HAS_PG and not MOCK_MODE:
         try:
-            db_pool = await asyncpg.create_pool(
-                host=os.getenv("DB_HOST", "localhost"),
-                port=int(os.getenv("DB_PORT", "5432")),
-                user=os.getenv("DB_USER", "hvac"),
-                password=os.getenv("DB_PASSWORD", "hvac_pass"),
-                database=os.getenv("DB_NAME", "hvac_ai"),
-                min_size=2, max_size=10,
-            )
+            if database_url:
+                # Railway provides DATABASE_URL
+                db_pool = await asyncpg.create_pool(
+                    database_url,
+                    min_size=1, max_size=5,
+                    command_timeout=5,
+                )
+            else:
+                # Fallback to individual vars
+                db_pool = await asyncpg.create_pool(
+                    host=os.getenv("DB_HOST", "localhost"),
+                    port=int(os.getenv("DB_PORT", "5432")),
+                    user=os.getenv("DB_USER", "hvac"),
+                    password=os.getenv("DB_PASSWORD", "hvac_pass"),
+                    database=os.getenv("DB_NAME", "hvac_ai"),
+                    min_size=1, max_size=5,
+                    command_timeout=5,
+                )
             logger.info("PostgreSQL connected")
         except Exception as e:
             logger.warning(f"DB unavailable (running without): {e}")
+            db_pool = None
 
     # Redis (optional — for session sharing and pub-sub)
-    if HAS_REDIS and REDIS_URL:
+    redis_url = os.getenv("REDIS_URL", "")
+    if HAS_REDIS and redis_url:
         try:
-            redis_client = aioredis.from_url(REDIS_URL, decode_responses=True)
+            redis_client = aioredis.from_url(redis_url, decode_responses=True, socket_timeout=5)
             await redis_client.ping()
             logger.info("Redis connected")
         except Exception as e:
