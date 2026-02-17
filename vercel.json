@@ -1,7 +1,6 @@
 {
   "functions": {
     "api/**/*.py": {
-      "runtime": "python3.12",
       "excludeFiles": "{tests/**,**/*.test.py,**/test_*.py,logs/**,test_logs/**,static/**,__pycache__/**,.factory/**,*.log,*.tar.gz,prometheus.yml,locustfile.py,.bun/**,hvac_*.py,brave.log,github.log,nohup.out}"
     }
   }
