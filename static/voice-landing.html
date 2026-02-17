@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HVAC AI Receptionist — Talk to AI Now</title>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=Source+Serif+4:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --flame: #E8530E;
+  --flame-dark: #C4440A;
+  --flame-glow: rgba(232, 83, 14, 0.4);
+  --ice: #1B8BD1;
+  --ice-dark: #156CA6;
+  --ice-glow: rgba(27, 139, 209, 0.4);
+  --dark: #0D1117;
+  --charcoal: #161B22;
+  --slate: #21262D;
+  --silver: #8B949E;
+  --cloud: #C9D1D9;
+  --white: #F0F6FC;
+  --success: #3FB950;
+  --warning: #D29922;
+  --danger: #F85149;
+  --font-display: 'Sora', sans-serif;
+  --font-body: 'Source Serif 4', Georgia, serif;
+}
+
+html { scroll-behavior: smooth; }
+body {
+  font-family: var(--font-body);
+  background: var(--dark);
+  color: var(--cloud);
+  line-height: 1.7;
+  overflow-x: hidden;
+}
+
+/* Noise overlay */
+body::before {
+  content: '';
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+  opacity: 0.4;
+}
+
+.container { max-width: 1200px; margin: 0 auto; padding: 0 32px; position: relative; z-index: 1; }
+
+/* ═══════════════════════════════════════════════════════════════════
+   HERO WITH MASSIVE VOICE BUTTON
+   ═══════════════════════════════════════════════════════════════════ */
+.hero {
+  min-height: 100vh;
+  display: flex; align-items: center; justify-content: center;
+  text-align: center;
+  padding: 80px 32px;
+  position: relative;
+}
+
+.hero-glow {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -60%);
+  width: 600px; height: 600px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(232,83,14,0.12) 0%, transparent 60%);
+  pointer-events: none;
+  animation: glowPulse 4s ease-in-out infinite;
+}
+
+@keyframes glowPulse {
+  0%, 100% { opacity: 0.6; transform: translate(-50%, -60%) scale(1); }
+  50% { opacity: 1; transform: translate(-50%, -60%) scale(1.1); }
+}
+
+.hero-content {
+  position: relative; z-index: 2;
+}
+
+.hero-badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: rgba(232,83,14,0.1); border: 1px solid rgba(232,83,14,0.2);
+  padding: 8px 20px; border-radius: 100px;
+  font-family: var(--font-display); font-size: 13px; font-weight: 500;
+  color: var(--flame); letter-spacing: 0.05em; text-transform: uppercase;
+  margin-bottom: 40px;
+  animation: fadeUp 0.8s ease both;
+}
+.hero-badge .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); animation: pulse 2s infinite; }
+
+h1 {
+  font-family: var(--font-display); font-size: clamp(36px, 5vw, 64px);
+  font-weight: 800; line-height: 1.1; color: var(--white);
+  letter-spacing: -0.03em; margin-bottom: 20px;
+  animation: fadeUp 0.8s ease 0.1s both;
+}
+h1 .highlight {
+  background: linear-gradient(135deg, var(--flame), #FF7B3A);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.hero-sub {
+  font-size: clamp(16px, 2vw, 20px); color: var(--silver);
+  max-width: 540px; margin: 0 auto 48px; line-height: 1.6;
+  animation: fadeUp 0.8s ease 0.2s both;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   MASSIVE VOICE BUTTON
+   ═══════════════════════════════════════════════════════════════════ */
+.voice-button-container {
+  position: relative;
+  display: flex; flex-direction: column; align-items: center;
+  margin-bottom: 48px;
+  animation: fadeUp 0.8s ease 0.3s both;
+}
+
+/* Animated rings around button */
+.voice-ring {
+  position: absolute; border-radius: 50%;
+  border: 2px solid var(--flame); opacity: 0;
+  animation: ringExpand 3s ease-out infinite;
+}
+.voice-ring:nth-child(1) { width: 180px; height: 180px; animation-delay: 0s; }
+.voice-ring:nth-child(2) { width: 180px; height: 180px; animation-delay: 1s; }
+.voice-ring:nth-child(3) { width: 180px; height: 180px; animation-delay: 2s; }
+
+@keyframes ringExpand {
+  0% { transform: scale(1); opacity: 0.6; }
+  100% { transform: scale(2.5); opacity: 0; }
+}
+
+/* Main voice button */
+#voiceButton {
+  width: 160px; height: 160px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--flame), var(--flame-dark));
+  border: 4px solid rgba(255,255,255,0.1);
+  cursor: pointer; position: relative; z-index: 10;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 
+    0 0 60px var(--flame-glow),
+    0 0 120px rgba(232, 83, 14, 0.2),
+    inset 0 2px 0 rgba(255,255,255,0.2);
+  transition: all 0.3s ease;
+}
+
+#voiceButton:hover {
+  transform: scale(1.08);
+  box-shadow: 
+    0 0 80px var(--flame-glow),
+    0 0 160px rgba(232, 83, 14, 0.3),
+    inset 0 2px 0 rgba(255,255,255,0.3);
+}
+
+#voiceButton:active {
+  transform: scale(0.95);
+}
+
+#voiceButton svg {
+  width: 64px; height: 64px;
+  fill: white;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+}
+
+/* Button states */
+#voiceButton.listening {
+  background: linear-gradient(135deg, var(--success), #2EA043);
+  box-shadow: 
+    0 0 60px rgba(63, 185, 80, 0.4),
+    0 0 120px rgba(63, 185, 80, 0.2);
+  animation: listeningPulse 1s ease-in-out infinite;
+}
+
+@keyframes listeningPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+#voiceButton.speaking {
+  background: linear-gradient(135deg, var(--ice), var(--ice-dark));
+  box-shadow: 
+    0 0 60px var(--ice-glow),
+    0 0 120px rgba(27, 139, 209, 0.2);
+}
+
+#voiceButton.error {
+  background: linear-gradient(135deg, var(--danger), #DA3633);
+}
+
+/* Voice button label */
+.voice-label {
+  margin-top: 24px;
+  font-family: var(--font-display); font-size: 18px; font-weight: 600;
+  color: var(--white);
+}
+.voice-sublabel {
+  font-size: 14px; color: var(--silver); margin-top: 4px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   VOICE CALL UI (appears when call starts)
+   ═══════════════════════════════════════════════════════════════════ */
+#voiceCallUI {
+  display: none;
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(13, 17, 23, 0.95);
+  backdrop-filter: blur(20px);
+  flex-direction: column; align-items: center; justify-content: center;
+  animation: fadeIn 0.3s ease;
+}
+
+#voiceCallUI.active { display: flex; }
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.call-header {
+  text-align: center; margin-bottom: 40px;
+}
+
+.call-status {
+  font-family: var(--font-display); font-size: 14px; font-weight: 600;
+  color: var(--success); text-transform: uppercase; letter-spacing: 0.1em;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.call-status .status-dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--success); animation: pulse 1.5s infinite;
+}
+
+.call-title {
+  font-family: var(--font-display); font-size: 32px; font-weight: 700;
+  color: var(--white); margin-top: 16px;
+}
+
+.call-duration {
+  font-family: var(--font-display); font-size: 18px;
+  color: var(--silver); margin-top: 8px;
+}
+
+/* Transcript display */
+.transcript-container {
+  width: 100%; max-width: 600px;
+  background: var(--charcoal); border-radius: 20px;
+  padding: 24px; margin-bottom: 32px;
+  max-height: 300px; overflow-y: auto;
+}
+
+.transcript-line {
+  padding: 12px 16px; margin-bottom: 8px; border-radius: 12px;
+  font-size: 15px; line-height: 1.5;
+}
+.transcript-line.user {
+  background: var(--flame); color: white;
+  margin-left: 40px; border-bottom-right-radius: 4px;
+}
+.transcript-line.ai {
+  background: rgba(27, 139, 209, 0.15); color: var(--cloud);
+  margin-right: 40px; border-bottom-left-radius: 4px;
+}
+.transcript-line.system {
+  background: rgba(232, 83, 14, 0.1); color: var(--flame);
+  text-align: center; font-size: 13px; font-weight: 600;
+}
+
+/* Call controls */
+.call-controls {
+  display: flex; gap: 16px; align-items: center;
+}
+
+.call-btn {
+  width: 64px; height: 64px; border-radius: 50%;
+  border: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.call-btn.mute {
+  background: var(--slate); color: var(--cloud);
+}
+.call-btn.mute:hover { background: #2d333b; }
+.call-btn.mute.active { background: var(--warning); color: var(--dark); }
+
+.call-btn.end {
+  width: 72px; height: 72px;
+  background: var(--danger); color: white;
+}
+.call-btn.end:hover { background: #DA3633; transform: scale(1.1); }
+
+.call-btn svg { width: 28px; height: 28px; fill: currentColor; }
+
+/* ═══════════════════════════════════════════════════════════════════
+   FALLBACK: TEXT CHAT
+   ═══════════════════════════════════════════════════════════════════ */
+.fallback-chat {
+  margin-top: 32px;
+  text-align: center;
+}
+
+.fallback-link {
+  color: var(--ice); font-family: var(--font-display);
+  font-size: 14px; text-decoration: none;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 10px 20px; border-radius: 8px;
+  background: rgba(27, 139, 209, 0.1);
+  border: 1px solid rgba(27, 139, 209, 0.2);
+  transition: all 0.2s ease;
+}
+.fallback-link:hover {
+  background: rgba(27, 139, 209, 0.15);
+  transform: translateY(-2px);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   FEATURES SECTION
+   ═══════════════════════════════════════════════════════════════════ */
+section { padding: 100px 0; }
+
+.features-section {
+  background: var(--charcoal);
+  position: relative;
+}
+.features-section::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(232,83,14,0.3), transparent);
+}
+
+.section-label {
+  font-family: var(--font-display); font-size: 13px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.12em;
+  color: var(--flame); margin-bottom: 16px; text-align: center;
+}
+
+.section-title {
+  font-family: var(--font-display); font-size: clamp(28px, 4vw, 42px);
+  font-weight: 700; color: var(--white); line-height: 1.15;
+  letter-spacing: -0.02em; margin-bottom: 20px; text-align: center;
+}
+
+.features-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 24px; margin-top: 56px;
+}
+
+.feature-card {
+  background: var(--dark); border: 1px solid rgba(139,148,158,0.1);
+  border-radius: 16px; padding: 32px;
+  transition: all 0.3s ease;
+}
+.feature-card:hover {
+  border-color: rgba(232,83,14,0.3);
+  transform: translateY(-4px);
+}
+
+.feature-icon {
+  width: 56px; height: 56px; border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 28px; margin-bottom: 20px;
+}
+.feature-icon.fire { background: rgba(232,83,14,0.15); }
+.feature-icon.ice { background: rgba(27,139,209,0.15); }
+.feature-icon.green { background: rgba(63,185,80,0.15); }
+.feature-icon.yellow { background: rgba(210,153,34,0.15); }
+
+.feature-title {
+  font-family: var(--font-display); font-size: 18px; font-weight: 600;
+  color: var(--white); margin-bottom: 8px;
+}
+
+.feature-desc {
+  font-size: 15px; color: var(--silver); line-height: 1.6;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   PRICING
+   ═══════════════════════════════════════════════════════════════════ */
+.pricing-section { text-align: center; }
+
+.pricing-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 24px; margin-top: 56px; max-width: 1000px; margin-left: auto; margin-right: auto;
+}
+
+.price-card {
+  background: var(--charcoal); border: 1px solid rgba(139,148,158,0.1);
+  border-radius: 20px; padding: 36px 28px;
+  position: relative; transition: all 0.3s ease;
+}
+.price-card:hover { transform: translateY(-4px); }
+.price-card.featured {
+  border-color: var(--flame);
+  background: linear-gradient(180deg, rgba(232,83,14,0.06), var(--charcoal));
+}
+.price-card.featured::before {
+  content: 'MOST POPULAR'; position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
+  background: var(--flame); color: white; padding: 5px 16px; border-radius: 100px;
+  font-family: var(--font-display); font-size: 10px; font-weight: 700; letter-spacing: 0.1em;
+}
+
+.price-name {
+  font-family: var(--font-display); font-size: 16px; font-weight: 600;
+  color: var(--white); margin-bottom: 6px;
+}
+.price-desc { font-size: 13px; color: var(--silver); margin-bottom: 20px; }
+.price-amount {
+  font-family: var(--font-display); font-size: 42px; font-weight: 800;
+  color: var(--white); letter-spacing: -0.03em;
+}
+.price-amount span { font-size: 16px; font-weight: 400; color: var(--silver); }
+
+.price-list {
+  list-style: none; margin: 24px 0;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.price-list li {
+  font-size: 14px; color: var(--cloud);
+  display: flex; align-items: center; gap: 8px;
+}
+.price-list li::before { content: '✓'; color: var(--success); font-weight: 700; }
+
+.btn {
+  font-family: var(--font-display); font-size: 14px; font-weight: 600;
+  padding: 14px 28px; border-radius: 10px; cursor: pointer;
+  text-decoration: none; transition: all 0.25s ease;
+  border: none; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+}
+.btn-primary {
+  background: linear-gradient(135deg, var(--flame), var(--flame-dark));
+  color: white; box-shadow: 0 4px 20px rgba(232,83,14,0.3);
+}
+.btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 28px rgba(232,83,14,0.4); }
+.btn-secondary {
+  background: var(--slate); color: var(--cloud);
+  border: 1px solid rgba(139,148,158,0.2);
+}
+.btn-secondary:hover { background: #2d333b; }
+.btn-price { width: 100%; }
+
+/* ═══════════════════════════════════════════════════════════════════
+   CTA SECTION
+   ═══════════════════════════════════════════════════════════════════ */
+.cta-section {
+  text-align: center; padding: 100px 32px;
+  background: linear-gradient(180deg, var(--dark), var(--charcoal));
+}
+
+.cta-title {
+  font-family: var(--font-display); font-size: clamp(28px, 4vw, 44px);
+  font-weight: 800; color: var(--white); line-height: 1.1;
+  letter-spacing: -0.03em; margin-bottom: 16px;
+}
+
+.cta-sub {
+  font-size: 18px; color: var(--silver);
+  margin-bottom: 32px; max-width: 480px; margin-left: auto; margin-right: auto;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   FOOTER
+   ═══════════════════════════════════════════════════════════════════ */
+footer {
+  padding: 40px 32px; text-align: center;
+  font-family: var(--font-display); font-size: 13px; color: var(--silver);
+  border-top: 1px solid rgba(139,148,158,0.1);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   ANIMATIONS
+   ═══════════════════════════════════════════════════════════════════ */
+@keyframes fadeUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+/* ═══════════════════════════════════════════════════════════════════
+   RESPONSIVE
+   ═══════════════════════════════════════════════════════════════════ */
+@media (max-width: 900px) {
+  .pricing-grid { grid-template-columns: 1fr; max-width: 360px; }
+  .features-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 600px) {
+  #voiceButton { width: 140px; height: 140px; }
+  #voiceButton svg { width: 56px; height: 56px; }
+  .voice-ring:nth-child(1) { width: 160px; height: 160px; }
+  .voice-ring:nth-child(2) { width: 160px; height: 160px; }
+  .voice-ring:nth-child(3) { width: 160px; height: 160px; }
+  section { padding: 60px 0; }
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════════════
+   HERO WITH MASSIVE VOICE BUTTON
+   ═══════════════════════════════════════════════════════════════════ -->
+<section class="hero">
+  <div class="hero-glow"></div>
+  <div class="hero-content">
+    <div class="hero-badge"><span class="dot"></span> Live AI Demo — No Signup Required</div>
+    <h1>Talk to Your <span class="highlight">HVAC AI</span><br>Receptionist Now</h1>
+    <p class="hero-sub">Click the button below to start a live voice call with our AI. Experience instant emergency triage, appointment scheduling, and 24/7 coverage — in real time.</p>
+    
+    <!-- MASSIVE VOICE BUTTON -->
+    <div class="voice-button-container">
+      <div class="voice-ring"></div>
+      <div class="voice-ring"></div>
+      <div class="voice-ring"></div>
+      <button id="voiceButton" onclick="startVoiceCall()">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 2C13.1 2 14 2.9 14 4V12C14 13.1 13.1 14 12 14C10.9 14 10 13.1 10 12V4C10 2.9 10.9 2 12 2ZM19 10V12C19 15.87 15.87 19 12 19C8.13 19 5 15.87 5 12V10H7V12C7 14.76 9.24 17 12 17C14.76 17 17 14.76 17 12V10H19ZM12 21C12.55 21 13 20.55 13 20V19H11V20C11 20.55 11.45 21 12 21Z"/>
+        </svg>
+      </button>
+      <div class="voice-label">Talk to AI Now</div>
+      <div class="voice-sublabel">Click to start a live voice conversation</div>
+    </div>
+    
+    <!-- Fallback to text chat -->
+    <div class="fallback-chat">
+      <a href="/static/landing.html#try" class="fallback-link">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M20 2H4C2.9 2 2 2.9 2 4V22L6 18H20C21.1 18 22 17.1 22 16V4C22 2.9 21.1 2 20 2ZM20 16H6L4 18V4H20V16Z"/>
+        </svg>
+        Prefer text chat? Try the text demo
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════
+   VOICE CALL UI (appears when call starts)
+   ═══════════════════════════════════════════════════════════════════ -->
+<div id="voiceCallUI">
+  <div class="call-header">
+    <div class="call-status">
+      <span class="status-dot"></span>
+      <span id="callStatusText">Connecting...</span>
+    </div>
+    <div class="call-title">HVAC AI Receptionist</div>
+    <div class="call-duration" id="callDuration">00:00</div>
+  </div>
+  
+  <div class="transcript-container" id="transcriptContainer">
+    <div class="transcript-line system">Connecting to AI receptionist...</div>
+  </div>
+  
+  <div class="call-controls">
+    <button class="call-btn mute" id="muteBtn" onclick="toggleMute()" title="Mute">
+      <svg viewBox="0 0 24 24"><path d="M12 14C13.66 14 15 12.66 15 11V5C15 3.34 13.66 2 12 2C10.34 2 9 3.34 9 5V11C9 12.66 10.34 14 12 14ZM17 11C17 13.76 14.76 16 12 16C9.24 16 7 13.76 7 11H5C5 14.53 7.61 17.43 11 17.92V21H13V17.92C16.39 17.43 19 14.53 19 11H17Z"/></svg>
+    </button>
+    <button class="call-btn end" onclick="endCall()" title="End Call">
+      <svg viewBox="0 0 24 24"><path d="M12 9C10.34 9 9 10.34 9 12C9 13.66 10.34 15 12 15C13.66 15 15 13.66 15 12C15 10.34 13.66 9 12 9ZM18.93 14.93L20.36 13.5L18.93 12.07L20.36 10.64L18.93 9.21L17.5 10.64L16.07 9.21L14.64 10.64L16.07 12.07L14.64 13.5L16.07 14.93L17.5 13.5L18.93 14.93ZM5.07 9.21L3.64 10.64L5.07 12.07L3.64 13.5L5.07 14.93L6.5 13.5L7.93 14.93L9.36 13.5L7.93 12.07L9.36 10.64L7.93 9.21L6.5 10.64L5.07 9.21Z"/></svg>
+    </button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════
+   FEATURES
+   ═══════════════════════════════════════════════════════════════════ -->
+<section class="features-section">
+  <div class="container">
+    <div class="section-label">Why HVAC AI</div>
+    <div class="section-title">Built for the trades. Not a generic chatbot.</div>
+    
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon fire">🔥</div>
+        <div class="feature-title">Emergency Triage</div>
+        <div class="feature-desc">Gas leaks, CO, no heat with elderly — classified instantly with rule-based logic. Zero AI hallucination. Zero delay.</div>
+      </div>
+      
+      <div class="feature-card">
+        <div class="feature-icon ice">🛡</div>
+        <div class="feature-title">5-Layer Safety Guards</div>
+        <div class="feature-desc">Pre-generation blocking + post-validation. Never gives DIY advice or refrigerant instructions. Your liability is protected.</div>
+      </div>
+      
+      <div class="feature-card">
+        <div class="feature-icon green">📍</div>
+        <div class="feature-title">Smart Dispatch</div>
+        <div class="feature-desc">Finds the closest tech with the right skills. VROOM-powered route optimization cuts 30-40% of drive time.</div>
+      </div>
+      
+      <div class="feature-card">
+        <div class="feature-icon yellow">📦</div>
+        <div class="feature-title">Inventory Tracking</div>
+        <div class="feature-desc">Real-time parts tracking. EPA compliance for refrigerants. Auto-reorder alerts. Never miss a job for missing parts.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════
+   PRICING
+   ═══════════════════════════════════════════════════════════════════ -->
+<section class="pricing-section">
+  <div class="container">
+    <div class="section-label">Pricing</div>
+    <div class="section-title">Less than one missed call per month</div>
+    
+    <div class="pricing-grid">
+      <div class="price-card">
+        <div class="price-name">Starter</div>
+        <div class="price-desc">Solo operators</div>
+        <div class="price-amount">$99<span>/mo</span></div>
+        <ul class="price-list">
+          <li>AI Receptionist (24/7)</li>
+          <li>Emergency Triage</li>
+          <li>Appointment Scheduling</li>
+          <li>SMS Confirmations</li>
+        </ul>
+        <a href="/static/landing.html#signup" class="btn btn-secondary btn-price">Start Free Trial</a>
+      </div>
+      
+      <div class="price-card featured">
+        <div class="price-name">Professional</div>
+        <div class="price-desc">Growing teams</div>
+        <div class="price-amount">$199<span>/mo</span></div>
+        <ul class="price-list">
+          <li>Everything in Starter</li>
+          <li>Route Optimization</li>
+          <li>Inventory Tracking</li>
+          <li>Multi-Tech Dispatch</li>
+        </ul>
+        <a href="/static/landing.html#signup" class="btn btn-primary btn-price">Start Free Trial</a>
+      </div>
+      
+      <div class="price-card">
+        <div class="price-name">Enterprise</div>
+        <div class="price-desc">Large operations</div>
+        <div class="price-amount">$399<span>/mo</span></div>
+        <ul class="price-list">
+          <li>Everything in Pro</li>
+          <li>EPA Compliance Suite</li>
+          <li>Custom AI Training</li>
+          <li>Dedicated Support</li>
+        </ul>
+        <a href="/static/landing.html#signup" class="btn btn-secondary btn-price">Contact Sales</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════
+   CTA
+   ═══════════════════════════════════════════════════════════════════ -->
+<section class="cta-section">
+  <div class="container">
+    <div class="cta-title">Stop losing $16K every month.</div>
+    <p class="cta-sub">5 minutes to set up. 30 days free. Your phone starts getting answered tonight.</p>
+    <a href="/static/landing.html#signup" class="btn btn-primary" style="font-size:16px;padding:16px 40px;">Start Your Free Trial →</a>
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    © 2026 HVAC AI Receptionist — Built for the trades, by people who get it.
+  </div>
+</footer>
+
+<!-- ═══════════════════════════════════════════════════════════════════
+   LIVEKIT VOICE INTEGRATION
+   ═══════════════════════════════════════════════════════════════════ -->
+<script type="module">
+// LiveKit SDK (loaded from CDN)
+import { Room, RoomEvent, createLocalAudioTrack, RemoteParticipant } from 'https://cdn.jsdelivr.net/npm/livekit-client@2/dist/livekit-client.esm.mjs';
+
+// State
+let room = null;
+let audioTrack = null;
+let callStartTime = null;
+let durationInterval = null;
+let isMuted = false;
+
+// DOM elements
+const voiceButton = document.getElementById('voiceButton');
+const voiceCallUI = document.getElementById('voiceCallUI');
+const callStatusText = document.getElementById('callStatusText');
+const callDuration = document.getElementById('callDuration');
+const transcriptContainer = document.getElementById('transcriptContainer');
+const muteBtn = document.getElementById('muteBtn');
+
+// Start voice call
+window.startVoiceCall = async function() {
+  try {
+    // Show call UI
+    voiceCallUI.classList.add('active');
+    voiceButton.classList.add('listening');
+    callStatusText.textContent = 'Connecting...';
+    
+    // Get LiveKit token from server
+    const response = await fetch('/api/livekit/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        room_name: 'demo-' + Date.now(),
+        participant_name: 'visitor'
+      })
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to get LiveKit token');
+    }
+    
+    const { token, url } = await response.json();
+    
+    // Create LiveKit room
+    room = new Room();
+    
+    // Set up event handlers
+    room.on(RoomEvent.Connected, () => {
+      console.log('Connected to LiveKit room');
+      callStatusText.textContent = 'Connected';
+      addTranscript('system', 'Connected to HVAC AI Receptionist. Speak naturally.');
+      startDurationTimer();
+    });
+    
+    room.on(RoomEvent.Disconnected, () => {
+      console.log('Disconnected from LiveKit room');
+      endCall();
+    });
+    
+    room.on(RoomEvent.ParticipantConnected, (participant) => {
+      console.log('Participant connected:', participant.identity);
+      if (participant.identity.includes('agent') || participant.identity.includes('AI')) {
+        callStatusText.textContent = 'Speaking with AI';
+      }
+    });
+    
+    room.on(RoomEvent.TrackSubscribed, (track, publication, participant) => {
+      if (track.kind === 'audio') {
+        const audioElement = track.attach();
+        audioElement.play();
+      }
+    });
+    
+    room.on(RoomEvent.DataReceived, (payload, participant) => {
+      const message = new TextDecoder().decode(payload);
+      try {
+        const data = JSON.parse(message);
+        if (data.type === 'transcript') {
+          if (data.speaker === 'user') {
+            addTranscript('user', data.text);
+          } else if (data.speaker === 'ai') {
+            addTranscript('ai', data.text);
+          }
+        }
+      } catch (e) {
+        // Plain text message
+        addTranscript('ai', message);
+      }
+    });
+    
+    // Connect to room
+    await room.connect(url, token);
+    
+    // Publish local audio
+    audioTrack = await createLocalAudioTrack();
+    await room.localParticipant.publishTrack(audioTrack);
+    
+    voiceButton.classList.remove('listening');
+    
+  } catch (error) {
+    console.error('Voice call error:', error);
+    voiceButton.classList.remove('listening');
+    voiceButton.classList.add('error');
+    callStatusText.textContent = 'Connection failed';
+    addTranscript('system', 'Connection failed. Please try again or use text chat.');
+    
+    // Fallback to simulation mode after 3 seconds
+    setTimeout(() => {
+      if (!room) {
+        startSimulatedCall();
+      }
+    }, 3000);
+  }
+};
+
+// Simulated call (fallback when LiveKit isn't available)
+function startSimulatedCall() {
+  voiceButton.classList.remove('error');
+  voiceButton.classList.add('listening');
+  callStatusText.textContent = 'Demo Mode';
+  addTranscript('system', 'Demo mode: LiveKit not configured. Showing simulated conversation.');
+  
+  startDurationTimer();
+  
+  // Simulate AI greeting
+  setTimeout(() => {
+    addTranscript('ai', "Hello, thank you for calling. This is Ashley. How can I help you with your heating or cooling needs today?");
+    voiceButton.classList.remove('listening');
+    voiceButton.classList.add('speaking');
+  }, 1000);
+  
+  // Simulate user speech detection
+  setTimeout(() => {
+    voiceButton.classList.remove('speaking');
+    voiceButton.classList.add('listening');
+  }, 4000);
+}
+
+// End call
+window.endCall = async function() {
+  if (durationInterval) {
+    clearInterval(durationInterval);
+    durationInterval = null;
+  }
+  
+  if (audioTrack) {
+    audioTrack.stop();
+    audioTrack = null;
+  }
+  
+  if (room) {
+    await room.disconnect();
+    room = null;
+  }
+  
+  voiceCallUI.classList.remove('active');
+  voiceButton.classList.remove('listening', 'speaking', 'error');
+  callStatusText.textContent = 'Call ended';
+  
+  // Reset transcript
+  setTimeout(() => {
+    transcriptContainer.innerHTML = '<div class="transcript-line system">Ready to start a new call</div>';
+  }, 500);
+};
+
+// Toggle mute
+window.toggleMute = function() {
+  if (audioTrack) {
+    isMuted = !isMuted;
+    audioTrack.muted = isMuted;
+    muteBtn.classList.toggle('active', isMuted);
+  }
+};
+
+// Add transcript line
+function addTranscript(type, text) {
+  const line = document.createElement('div');
+  line.className = 'transcript-line ' + type;
+  line.textContent = text;
+  transcriptContainer.appendChild(line);
+  transcriptContainer.scrollTop = transcriptContainer.scrollHeight;
+}
+
+// Start duration timer
+function startDurationTimer() {
+  callStartTime = Date.now();
+  durationInterval = setInterval(() => {
+    const elapsed = Math.floor((Date.now() - callStartTime) / 1000);
+    const minutes = Math.floor(elapsed / 60).toString().padStart(2, '0');
+    const seconds = (elapsed % 60).toString().padStart(2, '0');
+    callDuration.textContent = `${minutes}:${seconds}`;
+  }, 1000);
+}
+</script>
+</body>
+</html>

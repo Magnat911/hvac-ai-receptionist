@@ -2,6 +2,7 @@
 """
 HVAC AI v6.0 - Production Route Optimization Engine
 VROOM solver (time windows, skills, capacity) + Haversine/OSRM distance matrix
++ Customer ETA Notifications (SMS/Email)
 """
 
 import os
@@ -10,7 +11,7 @@ import logging
 import asyncio
 from typing import List, Dict, Tuple, Optional, Any
 from dataclasses import dataclass, field, asdict
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import httpx
 import vroom
@@ -18,6 +19,9 @@ import vroom
 logger = logging.getLogger("hvac-routing")
 
 OSRM_URL = os.getenv("OSRM_URL", "")  # Optional: real road distances
+TELNYX_API_KEY = os.getenv("TELNYX_API_KEY", "")
+TELNYX_PHONE = os.getenv("TELNYX_PHONE", "")
+MOCK_MODE = os.getenv("MOCK_MODE", "1") == "1"
 
 # ============================================================================
 # DATA MODELS
@@ -61,6 +65,30 @@ class RouteStop:
     lon: float
     address: str
     distance_km: float = 0.0
+
+@dataclass
+class CustomerNotification:
+    """Customer notification for ETA updates."""
+    id: str
+    job_id: str
+    customer_name: str
+    customer_phone: str
+    technician_name: str
+    eta_minutes: int
+    message: str
+    sent_at: str
+    status: str  # pending, sent, delivered, failed
+    notification_type: str  # eta_update, on_my_way, arrived, completed
+
+@dataclass
+class JobWithCustomer(Job):
+    """Extended job with customer contact info for notifications."""
+    customer_phone: str = ""
+    customer_email: str = ""
+    notify_on_dispatch: bool = True
+    notify_on_en_route: bool = True
+    notify_on_arrival: bool = True
+    notify_on_completed: bool = True
 
 SKILL_MAP = {
     "ac_repair": ["hvac", "refrigeration"],
@@ -421,3 +449,238 @@ class HybridRouter:
             tech.current_load = completed_count
 
         return await self.optimize_routes(technicians, all_jobs, depot)
+
+
+# ============================================================================
+# CUSTOMER ETA NOTIFICATION SERVICE
+# ============================================================================
+
+class CustomerNotificationService:
+    """Send ETA notifications to customers via SMS/Email."""
+
+    def __init__(self):
+        self.notifications: List[CustomerNotification] = []
+        self.telnyx_api_key = TELNYX_API_KEY
+        self.telnyx_phone = TELNYX_PHONE
+        self.mock = MOCK_MODE or not TELNYX_API_KEY
+
+    async def send_eta_notification(
+        self,
+        job_id: str,
+        customer_name: str,
+        customer_phone: str,
+        technician_name: str,
+        eta_minutes: int,
+        notification_type: str = "eta_update"
+    ) -> Dict:
+        """Send ETA notification to customer."""
+        # Build message based on type
+        messages = {
+            "eta_update": f"Hi {customer_name}, {technician_name} from HVAC Pro will arrive in approximately {eta_minutes} minutes. You'll receive another update when they're on their way.",
+            "on_my_way": f"Hi {customer_name}, {technician_name} is on the way to your location! ETA: {eta_minutes} minutes. Address: We have your address on file.",
+            "arrived": f"Hi {customer_name}, {technician_name} has arrived at your location and will be with you shortly.",
+            "completed": f"Hi {customer_name}, your service has been completed. Thank you for choosing HVAC Pro! You'll receive a summary shortly."
+        }
+
+        message = messages.get(notification_type, messages["eta_update"])
+
+        notification = CustomerNotification(
+            id=f"notif_{job_id}_{notification_type}",
+            job_id=job_id,
+            customer_name=customer_name,
+            customer_phone=customer_phone,
+            technician_name=technician_name,
+            eta_minutes=eta_minutes,
+            message=message,
+            sent_at=datetime.now(timezone.utc).isoformat(),
+            status="pending",
+            notification_type=notification_type
+        )
+
+        # Send SMS
+        result = await self._send_sms(customer_phone, message)
+        notification.status = "sent" if result.get("success") else "failed"
+        self.notifications.append(notification)
+
+        logger.info(f"ETA notification sent to {customer_name}: {notification_type} ({notification.status})")
+        return {
+            "success": result.get("success", False),
+            "notification": asdict(notification),
+            "mock": self.mock
+        }
+
+    async def _send_sms(self, to: str, body: str) -> Dict:
+        """Send SMS via Telnyx."""
+        if self.mock:
+            logger.info(f"[MOCK] SMS to {to}: {body}")
+            return {"success": True, "mock": True, "message_id": f"mock_{datetime.now().timestamp()}"}
+
+        if not self.telnyx_api_key:
+            return {"success": False, "error": "Telnyx API key not configured"}
+
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.post(
+                    "https://api.telnyx.com/v2/messages",
+                    headers={
+                        "Authorization": f"Bearer {self.telnyx_api_key}",
+                        "Content-Type": "application/json"
+                    },
+                    json={
+                        "from": self.telnyx_phone,
+                        "to": to,
+                        "text": body
+                    }
+                )
+                if resp.status_code in (200, 201):
+                    data = resp.json()
+                    return {"success": True, "message_id": data.get("data", {}).get("id", "")}
+                return {"success": False, "error": f"API error: {resp.status_code}"}
+        except Exception as e:
+            logger.error(f"SMS send error: {e}")
+            return {"success": False, "error": str(e)}
+
+    async def send_dispatch_notifications(
+        self,
+        routes: Dict[str, List[RouteStop]],
+        technician_map: Dict[str, Technician],
+        job_customer_map: Dict[str, Dict]  # job_id -> {customer_name, customer_phone, ...}
+    ) -> List[Dict]:
+        """Send ETA notifications for all jobs in routes."""
+        results = []
+        for tech_id, stops in routes.items():
+            tech = technician_map.get(tech_id)
+            if not tech:
+                continue
+
+            for i, stop in enumerate(stops):
+                customer_info = job_customer_map.get(stop.job_id, {})
+                if not customer_info.get("customer_phone"):
+                    continue
+
+                # Calculate cumulative ETA
+                eta_minutes = sum(s.travel_minutes for s in stops[:i+1])
+
+                result = await self.send_eta_notification(
+                    job_id=stop.job_id,
+                    customer_name=customer_info.get("customer_name", "Customer"),
+                    customer_phone=customer_info["customer_phone"],
+                    technician_name=tech.name,
+                    eta_minutes=eta_minutes,
+                    notification_type="eta_update"
+                )
+                results.append(result)
+
+        return results
+
+    async def send_on_my_way(
+        self,
+        job_id: str,
+        customer_name: str,
+        customer_phone: str,
+        technician_name: str,
+        eta_minutes: int
+    ) -> Dict:
+        """Send 'technician is on the way' notification."""
+        return await self.send_eta_notification(
+            job_id=job_id,
+            customer_name=customer_name,
+            customer_phone=customer_phone,
+            technician_name=technician_name,
+            eta_minutes=eta_minutes,
+            notification_type="on_my_way"
+        )
+
+    async def send_arrived_notification(
+        self,
+        job_id: str,
+        customer_name: str,
+        customer_phone: str,
+        technician_name: str
+    ) -> Dict:
+        """Send 'technician has arrived' notification."""
+        return await self.send_eta_notification(
+            job_id=job_id,
+            customer_name=customer_name,
+            customer_phone=customer_phone,
+            technician_name=technician_name,
+            eta_minutes=0,
+            notification_type="arrived"
+        )
+
+    async def send_completed_notification(
+        self,
+        job_id: str,
+        customer_name: str,
+        customer_phone: str,
+        technician_name: str
+    ) -> Dict:
+        """Send 'job completed' notification."""
+        return await self.send_eta_notification(
+            job_id=job_id,
+            customer_name=customer_name,
+            customer_phone=customer_phone,
+            technician_name=technician_name,
+            eta_minutes=0,
+            notification_type="completed"
+        )
+
+    def get_notification_history(self, job_id: str = None) -> List[Dict]:
+        """Get notification history, optionally filtered by job."""
+        notifs = self.notifications
+        if job_id:
+            notifs = [n for n in notifs if n.job_id == job_id]
+        return [asdict(n) for n in notifs]
+
+
+# ============================================================================
+# ENHANCED ROUTER WITH NOTIFICATIONS
+# ============================================================================
+
+class RouterWithNotifications(HybridRouter):
+    """Route optimizer with integrated customer notifications."""
+
+    def __init__(self):
+        super().__init__()
+        self.notification_service = CustomerNotificationService()
+
+    async def optimize_and_notify(
+        self,
+        technicians: List[Technician],
+        jobs: List[JobWithCustomer],
+        depot: Tuple[float, float] = (0.0, 0.0),
+        profile: str = "urban",
+        send_notifications: bool = True
+    ) -> Dict:
+        """Optimize routes and send ETA notifications."""
+        # Optimize routes
+        routes = await self.optimize_routes(technicians, jobs, depot, profile)
+
+        # Calculate savings
+        savings = self.estimate_savings(routes)
+
+        # Build maps
+        tech_map = {t.id: t for t in technicians}
+        job_customer_map = {
+            j.id: {
+                "customer_name": j.customer_name,
+                "customer_phone": j.customer_phone,
+                "customer_email": j.customer_email,
+                "notify_on_dispatch": j.notify_on_dispatch
+            }
+            for j in jobs
+        }
+
+        # Send notifications
+        notifications = []
+        if send_notifications:
+            notifications = await self.notification_service.send_dispatch_notifications(
+                routes, tech_map, job_customer_map
+            )
+
+        return {
+            "routes": {k: [asdict(s) for s in v] for k, v in routes.items()},
+            "savings": savings,
+            "notifications_sent": len([n for n in notifications if n.get("success")]),
+            "notifications": notifications
+        }

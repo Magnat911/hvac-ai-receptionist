@@ -59,6 +59,54 @@ body::before {
   background: radial-gradient(circle, rgba(232,83,14,0.08) 0%, transparent 70%);
   pointer-events: none;
 }
+.hero-glow {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -60%);
+  width: 600px; height: 600px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(232,83,14,0.12) 0%, transparent 60%);
+  pointer-events: none;
+  animation: glowPulse 4s ease-in-out infinite;
+}
+@keyframes glowPulse {
+  0%, 100% { opacity: 0.6; transform: translate(-50%, -60%) scale(1); }
+  50% { opacity: 1; transform: translate(-50%, -60%) scale(1.1); }
+}
+
+/* MASSIVE VOICE BUTTON */
+.voice-button-container {
+  position: relative;
+  display: flex; flex-direction: column; align-items: center;
+  margin-bottom: 32px;
+  animation: fadeUp 0.8s ease 0.3s both;
+}
+.voice-ring {
+  position: absolute; border-radius: 50%;
+  border: 2px solid var(--flame); opacity: 0;
+  animation: ringExpand 3s ease-out infinite;
+}
+.voice-ring:nth-child(1) { width: 140px; height: 140px; animation-delay: 0s; }
+.voice-ring:nth-child(2) { width: 140px; height: 140px; animation-delay: 1s; }
+.voice-ring:nth-child(3) { width: 140px; height: 140px; animation-delay: 2s; }
+@keyframes ringExpand {
+  0% { transform: scale(1); opacity: 0.6; }
+  100% { transform: scale(2.5); opacity: 0; }
+}
+.voice-btn-main {
+  width: 120px; height: 120px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--flame), var(--flame-dark));
+  border: 4px solid rgba(255,255,255,0.1);
+  cursor: pointer; position: relative; z-index: 10;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 0 60px rgba(232,83,14,0.4), 0 0 120px rgba(232,83,14,0.2), inset 0 2px 0 rgba(255,255,255,0.2);
+  transition: all 0.3s ease; text-decoration: none;
+}
+.voice-btn-main:hover {
+  transform: scale(1.08);
+  box-shadow: 0 0 80px rgba(232,83,14,0.5), 0 0 160px rgba(232,83,14,0.3), inset 0 2px 0 rgba(255,255,255,0.3);
+}
+.voice-btn-main:active { transform: scale(0.95); }
+.voice-btn-main svg { width: 48px; height: 48px; fill: white; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3)); }
+.voice-label { margin-top: 16px; font-family: var(--font-display); font-size: 16px; font-weight: 600; color: var(--white); }
+.voice-sublabel { font-size: 13px; color: var(--silver); margin-top: 2px; }
 .hero-badge {
   display: inline-flex; align-items: center; gap: 8px;
   background: rgba(232,83,14,0.1); border: 1px solid rgba(232,83,14,0.2);
@@ -431,13 +479,29 @@ footer {
 
 <!-- ══════ HERO ══════ -->
 <section class="hero">
+  <div class="hero-glow"></div>
   <div>
     <div class="hero-badge"><span class="dot"></span> Now in Beta — 30-Day Free Trial</div>
     <h1>Your Best Tech<br>Is Missing <span class="highlight">47 Calls</span><br>a Month</h1>
     <p class="hero-sub">AI receptionist built for HVAC. Handles emergencies, books appointments, optimizes routes — while you're on the roof.</p>
+    
+    <!-- MASSIVE VOICE BUTTON -->
+    <div class="voice-button-container">
+      <div class="voice-ring"></div>
+      <div class="voice-ring"></div>
+      <div class="voice-ring"></div>
+      <a href="/static/voice-landing.html" id="voiceButton" class="voice-btn-main">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 2C13.1 2 14 2.9 14 4V12C14 13.1 13.1 14 12 14C10.9 14 10 13.1 10 12V4C10 2.9 10.9 2 12 2ZM19 10V12C19 15.87 15.87 19 12 19C8.13 19 5 15.87 5 12V10H7V12C7 14.76 9.24 17 12 17C14.76 17 17 14.76 17 12V10H19ZM12 21C12.55 21 13 20.55 13 20V19H11V20C11 20.55 11.45 21 12 21Z"/>
+        </svg>
+      </a>
+      <div class="voice-label">Talk to AI Now</div>
+      <div class="voice-sublabel">Click to start a live voice conversation</div>
+    </div>
+    
     <div class="hero-ctas">
       <a href="#signup" class="btn btn-primary">Start Free Trial →</a>
-      <a href="#try" class="btn btn-secondary">▶ Try the AI Live</a>
+      <a href="#try" class="btn btn-secondary">▶ Try Text Chat</a>
     </div>
   </div>
 </section>

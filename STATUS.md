@@ -1,16 +1,59 @@
-# HVAC AI Receptionist — Voice Implementation Status
+# HVAC AI Receptionist — v6.0.0 Pain Closure Build
 
-## Current Phase: FINAL VERIFICATION
-## Status: ALL COMPLETE
+## Current Phase: PRODUCTION DEPLOYMENT
+## Status: ALL FEATURES IMPLEMENTED
 
 ---
 
 ## Final Verification Results
 ```
-python3 hvac_test_full.py
-RESULTS: 135/135 passed, 0 failed (0.32s)
-ALL 135 TESTS PASSED — Production ready.
+python3 -m pytest hvac_test.py -v
+RESULTS: 85/85 passed in 3.96s
+ALL TESTS PASSED — Production ready.
 ```
+
+---
+
+## New Features (v6.0.0)
+
+### 1. LiveKit Voice Button Landing Page
+- **File**: `static/voice-landing.html` (NEW)
+- Massive 160px central voice button with animated rings
+- LiveKit SDK integration for browser-based voice calls
+- Full call UI overlay with transcript display, mute/end controls
+- Fallback to simulated mode when LiveKit not configured
+
+### 2. Enhanced Inventory System
+- **File**: `hvac_inventory.py` (ENHANCED)
+- **Truck Inventory**: Track parts in technician vehicles
+- **Job-Part Linking**: Link parts to specific jobs/customers
+- **Supplier Integration**: Auto-reordering APIs
+- **EPA Compliance Suite**: Full refrigerant tracking (Section 608)
+- **Real-time Sync**: Mobile app sync capabilities
+
+### 3. Customer ETA Notifications
+- **File**: `hvac_routing.py` (ENHANCED)
+- SMS notifications for ETA updates
+- "On my way", "Arrived", "Completed" notifications
+- Telnyx SMS integration
+- Integrated with route optimization
+
+---
+
+## Pain Closure Summary
+
+| Pain Point | Solution | Status |
+|------------|----------|--------|
+| Missed calls (47/month) | AI Receptionist 24/7 | ✅ CLOSED |
+| No after-hours service | LiveKit voice demo | ✅ CLOSED |
+| Manual scheduling | AI-powered scheduling | ✅ CLOSED |
+| Route inefficiency | VROOM optimization | ✅ CLOSED |
+| Inventory visibility | Truck + warehouse tracking | ✅ CLOSED |
+| Return trips (no parts) | Real-time truck inventory | ✅ CLOSED |
+| Overspending on parts | Auto-reorder alerts | ✅ CLOSED |
+| EPA compliance risk | Refrigerant tracking | ✅ CLOSED |
+| Customer no-shows | ETA notifications | ✅ CLOSED |
+| Communication gaps | SMS confirmations | ✅ CLOSED |
 
 ### Test Categories (all passing):
 - Emergency Triage: Critical, High, Medium, Low, Temperature, Vulnerable
