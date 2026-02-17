@@ -1,6 +1,4 @@
 {
-  "buildCommand": "cp requirements-vercel.txt requirements.txt && pip install -r requirements.txt",
-  "outputDirectory": ".",
   "rewrites": [
     {
       "source": "/(.*)",

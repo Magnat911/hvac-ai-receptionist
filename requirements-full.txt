@@ -1,0 +1,32 @@
+# HVAC AI Receptionist v6.0 - Dependencies
+# Core
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+httpx==0.28.1
+pydantic==2.10.4
+python-dotenv==1.0.1
+mangum==0.19.0
+
+# Database
+asyncpg==0.30.0
+redis[hiredis]==5.2.1
+
+# Monitoring
+prometheus-client==0.21.1
+
+# Route optimization (VROOM solver)
+vroom==1.0.2
+
+# Voice pipeline
+requests==2.32.3
+websockets==14.1
+
+# LiveKit Agents (optional - for production voice)
+livekit-agents>=0.9.0
+livekit-plugins-assemblyai>=0.6.0
+livekit-plugins-openai>=0.6.0
+livekit-plugins-elevenlabs>=0.6.0
+
+# Testing (dev only)
+pytest==8.3.4
+pytest-asyncio==0.25.0
