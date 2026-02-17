@@ -1,18 +1,10 @@
 {
-  "version": 2,
-  "builds": [
+  "buildCommand": "cp requirements-vercel.txt requirements.txt && pip install -r requirements.txt",
+  "outputDirectory": ".",
+  "rewrites": [
     {
-      "src": "api/index.py",
-      "use": "@vercel/python",
-      "config": {
-        "includeFiles": "**/*.py"
-      }
-    }
-  ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "api/index.py"
+      "source": "/(.*)",
+      "destination": "/api/index"
     }
   ]
 }
