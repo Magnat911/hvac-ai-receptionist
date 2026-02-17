@@ -33,3 +33,7 @@ test_logs/
 .zcompdump*
 .opencode/
 .vercel
+
+# Factory internal files
+.factory/
+.env.local
