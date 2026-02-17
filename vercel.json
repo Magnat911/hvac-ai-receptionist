@@ -1,4 +1,9 @@
 {
+  "functions": {
+    "api/**/*.py": {
+      "excludeFiles": "{tests/**,**/*.test.py,**/test_*.py,logs/**,test_logs/**,static/**,__pycache__/**,.factory/**,*.log,*.tar.gz,prometheus.yml,locustfile.py}"
+    }
+  },
   "rewrites": [
     {
       "source": "/(.*)",
