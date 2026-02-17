@@ -32,3 +32,4 @@ test_logs/
 .shell.pre-oh-my-zsh
 .zcompdump*
 .opencode/
+.vercel
