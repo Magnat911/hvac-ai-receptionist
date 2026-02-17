@@ -1,0 +1,13 @@
+[project]
+name = "hvac-ai"
+version = "6.0.0"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115.6",
+    "httpx>=0.28.1",
+    "pydantic>=2.10.4",
+    "python-dotenv>=1.0.1",
+]
+
+[project.scripts]
+app = "hvac_main:app"
