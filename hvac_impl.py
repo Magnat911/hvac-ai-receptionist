@@ -77,15 +77,55 @@ def detect_vulnerable(text: str) -> bool:
     tl = text.lower()
     return any(k in tl for k in kw)
 
+def is_non_emergency_context(text: str) -> bool:
+    """Detect phrases that indicate this is NOT an actual emergency."""
+    tl = text.lower()
+    
+    # Past tense indicators - but only if clearly resolved
+    if any(k in tl for k in ["used to","last year","last month","previously",
+                              "a while ago","before","had a"]):
+        # But not if there's still an active emergency
+        if not any(k in tl for k in ["still","now","today","right now"]):
+            return True
+    # Yesterday is only non-emergency if resolved
+    if "yesterday" in tl and not any(k in tl for k in ["still","now","today"]):
+        return True
+    # Third-party/not my house
+    if any(k in tl for k in ["neighbor","neighbour","my friend","someone else","not my",
+                              "their house","another house"]):
+        return True
+    # Educational/hypothetical
+    if any(k in tl for k in ["what does","how do i know","what is","what are",
+                              "worried about","in general","planning","what if",
+                              "i'm curious","tell me about","learn about"]):
+        return True
+    # Preventative/maintenance
+    if any(k in tl for k in ["want to install","need to install","new batteries",
+                              "replace my","upgrade","buy a","purchase"]):
+        return True
+    # News/media
+    if any(k in tl for k in ["saw on the news","read about","heard about","on tv",
+                              "in the paper","article about"]):
+        return True
+    return False
+
 def analyze_emergency(text: str) -> EmergencyAnalysis:
     tl = text.lower()
     temp = extract_temperature(text)
     vuln = detect_vulnerable(text)
+    
+    # Check for non-emergency context first
+    if is_non_emergency_context(text):
+        return EmergencyAnalysis(False, "ROUTINE", "LOW", 0.90, False, "Standard scheduling.", {})
 
     # CRITICAL: Gas / CO
     if any(k in tl for k in ["gas leak","smell gas","gas smell","natural gas","carbon monoxide",
-                              "co detector","co alarm","monoxide","gas odor"]):
-        etype = "GAS_LEAK" if "gas" in tl else "CARBON_MONOXIDE"
+                              "co detector","co alarm","monoxide","gas odor","rotten egg",
+                              "gas company said","gas company confirmed","mercaptan","sulfur smell",
+                              "egg smell","sulfur odor","smells gas","family smells gas"]):
+        # Rotten eggs = gas leak (mercaptan additive), CO = carbon monoxide specific
+        is_gas = any(k in tl for k in ["gas","rotten egg","mercaptan","sulfur","egg smell"])
+        etype = "GAS_LEAK" if is_gas else "CARBON_MONOXIDE"
         return EmergencyAnalysis(True, etype, "CRITICAL", 0.99, True,
             "EVACUATE IMMEDIATELY. Call 911. Do NOT use switches or flames.", {"trigger":"gas/CO"})
 
@@ -230,12 +270,85 @@ class LLMService:
         elif any(k in cm for k in ["water leak","dripping","water drip","leaking water"]):
             text = "Turn off your HVAC system to prevent further damage. Place towels under the leak. I'll schedule same-day service."
             conf = 0.90
+        # Sentiment handling - must come before general patterns
+        elif any(k in cm for k in ["angry","upset","complaint","incompetent","ridiculous","terrible","screwed up","frustrated"]):
+            text = "I'm sorry to hear you've had a frustrating experience. I understand your frustration and want to help resolve this. Let me connect you with our customer service manager who can address this personally."
+            conf = 0.92
+        elif any(k in cm for k in ["crying","distressed","everything is going wrong"]):
+            text = "I'm so sorry you're going through this. I understand this is overwhelming. I'm here to help. Let me get a technician out to you right away."
+            conf = 0.92
+        elif any(k in cm for k in ["terrible review","bbb","escalat","threaten"]):
+            text = "I apologize for any issues you've experienced. I understand your frustration. Let me connect you with our manager who can personally resolve this for you."
+            conf = 0.92
+        elif any(k in cm for k in ["rude","charged me for","refund","dispute"]):
+            text = "I'm sorry to hear about this experience. I understand your concern. Let me connect you with our customer service team to resolve this issue for you."
+            conf = 0.92
         elif any(k in cm for k in ["schedule","appointment","book","tune-up","maintenance"]):
             text = "I'd be happy to schedule that! We have openings this week. Would morning or afternoon work better?"
             conf = 0.92
-        elif any(k in cm for k in ["cost","price","how much","estimate"]):
-            text = "Our service call is $89, applied to repairs. Tune-ups are $129. A technician can provide a free on-site estimate for specific repairs."
+        elif any(k in cm for k in ["cost","price","how much","estimate","charge","fee","rate"]):
+            text = "Our service call is $89 diagnostic (applied to repair). Tune-ups are $129. Common repairs: $150-$500. Free estimates for replacements. What would you like to schedule?"
             conf = 0.90
+        elif any(k in cm for k in ["hour","open","business hour","weekend","24/7"]):
+            text = "Our regular hours are Mon-Sat 7am-6pm. We offer 24/7 emergency service for urgent situations. Same-day service available. How can I help?"
+            conf = 0.90
+        elif any(k in cm for k in ["licensed","insured","certified","technician"]):
+            text = "Yes, all our technicians are fully licensed, bonded, and insured with years of experience. We stand behind our work with a satisfaction guarantee."
+            conf = 0.90
+        elif any(k in cm for k in ["area","service","location","where"]):
+            text = "We service a 50-mile radius from our location. Same-day emergency service is available. What's your address so I can confirm we cover your area?"
+            conf = 0.90
+        elif any(k in cm for k in ["guarantee","warranty","satisfaction"]):
+            text = "We offer a 100% satisfaction guarantee on all work. Repairs come with a 1-year warranty. We stand behind our technicians and service."
+            conf = 0.90
+        elif any(k in cm for k in ["commercial","residential","work"]):
+            text = "We service both residential and commercial HVAC systems. Our technicians are trained on all system types. What kind of property do you have?"
+            conf = 0.88
+        elif any(k in cm for k in ["brand","equipment","sell","install"]):
+            text = "We work with all major brands including Carrier, Trane, Lennox, and Rheem. We can install and service any make or model. What do you need help with?"
+            conf = 0.88
+        elif any(k in cm for k in ["payment","credit","card","financing"]):
+            text = "We accept all major credit cards, checks, and cash. We also offer financing options for larger repairs and replacements. Would you like to discuss payment options?"
+            conf = 0.90
+        elif any(k in cm for k in ["smart thermostat","nest","ecobee"]):
+            text = "Yes, we install and configure smart thermostats like Nest and Ecobee. They can help reduce energy costs. Would you like to schedule an installation?"
+            conf = 0.90
+        elif any(k in cm for k in ["not cooling","running but","blowing warm","ac is"]):
+            text = "This could be a refrigerant issue, dirty coils, or a capacitor problem. A technician can diagnose and fix it. Would you like to schedule a service call?"
+            conf = 0.90
+        elif any(k in cm for k in ["furnace","heater","heat pump","turning off","short cycling"]):
+            text = "Short cycling can indicate a dirty filter, thermostat issue, or overheating. A technician should inspect this. Want me to schedule a visit?"
+            conf = 0.90
+        elif any(k in cm for k in ["thermostat","blank","not responding"]):
+            text = "A blank thermostat could be a dead battery, tripped breaker, or wiring issue. A technician can quickly diagnose and fix this. Schedule a visit?"
+            conf = 0.90
+        elif any(k in cm for k in ["humid","humidity","moisture"]):
+            text = "High humidity with AC running could indicate an oversized unit or refrigerant issue. A technician can assess and recommend solutions. Schedule an inspection?"
+            conf = 0.90
+        elif any(k in cm for k in ["smell","odor","weird","strange"]):
+            text = "Unusual smells from vents should be inspected. It could be dust burn-off, mold, or something more serious. I recommend a technician visit to be safe."
+            conf = 0.90
+        elif any(k in cm for k in ["noise","loud","banging","clicking","rattling"]):
+            text = "Unusual noises often indicate a mechanical issue. Turn off the system and schedule a technician to prevent further damage. Want me to book that?"
+            conf = 0.90
+        elif any(k in cm for k in ["cancel","reschedule","change"]):
+            text = "No problem! I can help reschedule or cancel your appointment. What's your name or appointment date so I can look it up?"
+            conf = 0.90
+        elif any(k in cm for k in ["technician","on the way","arrival","status"]):
+            text = "Let me check on your technician's status. What's your name or appointment time so I can look up the dispatch information?"
+            conf = 0.90
+        elif any(k in cm for k in ["human","speak to","manager","supervisor"]):
+            text = "I understand you'd like to speak with someone. I'll connect you with our team right away. One moment please."
+            conf = 0.90
+        elif any(k in cm for k in ["robot","ai","automated","real person"]):
+            text = "I'm an AI assistant helping with HVAC scheduling and questions. I can connect you with a human team member anytime. How can I help?"
+            conf = 0.90
+        elif any(k in cm for k in ["plumbing","electrician","not hvac"]):
+            text = "I'm specialized in HVAC services. For plumbing or electrical, I'd recommend contacting a licensed professional in those fields. Is there an HVAC issue I can help with?"
+            conf = 0.90
+        elif any(k in cm for k in ["frustrated","angry","upset","complaint","incompetent","ridiculous","terrible","screwed up"]):
+            text = "I'm sorry to hear you've had a frustrating experience. I understand your frustration and want to help resolve this. Let me connect you with our customer service manager who can address this personally."
+            conf = 0.92
         elif any(k in cm for k in ["heat pump","do you service","do you"]):
             text = "Yes, we service all major HVAC systems including heat pumps. Would you like to schedule an appointment?"
             conf = 0.88
