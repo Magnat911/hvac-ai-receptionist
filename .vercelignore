@@ -1,8 +1,75 @@
-.opencode/
-.bun/
-venv/
-__pycache__/
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
 *.pyc
+*.pyo
+*.egg-info
+.eggs
+*.egg
+.pytest_cache
+.mypy_cache
+.coverage
+htmlcov
+*.cover
+
+# Virtual environments
+venv
+.venv
+env
 .env
-.factory/
-node_modules/.cache
+
+# Cache directories
+.cache
+.npm
+.local
+.node-gyp
+
+# IDE and editor
+.idea
+.vscode
+*.swp
+*.swo
+
+# Logs
+*.log
+logs
+test_logs
+
+# Factory/Droid
+.factory
+.opencode
+.claude
+
+# Large files
+*.tar.gz
+*.zip
+*.tgz
+
+# Test files
+hvac_test*.py
+test_*.py
+*_test.py
+locustfile.py
+
+# Docker
+Dockerfile
+docker-compose.yml
+.docker
+
+# Prometheus
+prometheus.yml
+
+# Documentation
+*.md
+!README.md
+
+# Backup files
+hvac-ai-backup-*
+
+# Misc
+nohup.out
+brave.log
+github.log

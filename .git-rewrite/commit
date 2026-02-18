@@ -1,0 +1,8 @@
+tree 2335c53dfb13cdbcdc3d39f5242d24a7d2c6a1b2
+parent 377b4ff2b5c20af5ca0a929cf790f5ea247d37b1
+author HVAC AI <dev@hvac-ai.com> 1771334363 +0000
+committer HVAC AI <dev@hvac-ai.com> 1771334363 +0000
+
+Checkpoint before GLM-5 full continuation - v6.0.0
+
+Co-authored-by: factory-droid[bot] <138933559+factory-droid[bot]@users.noreply.github.com>
