@@ -1,0 +1,8 @@
+.opencode/
+.bun/
+venv/
+__pycache__/
+*.pyc
+.env
+.factory/
+node_modules/.cache
